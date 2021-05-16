@@ -1,0 +1,60 @@
+version: "3"
+services:
+    archive:
+        image: sora2/substrate:1.0.1
+        restart: always
+        volumes:
+            - sora-archive:/chain
+        user: '0'
+        command:
+            - --name
+            - mysoraarchive
+            - --chain
+            - main
+            - --base-path
+            - /chain
+            - --unsafe-ws-external
+            - --unsafe-rpc-external
+            - --rpc-cors
+            - all
+            - --rpc-methods
+            - Unsafe
+            - --pruning
+            - archive
+            - --execution
+            - Wasm
+    postgres:
+        image: postgres:latest
+        restart: always
+        environment:
+            POSTGRES_PASSWORD: "postgres"
+        volumes:
+            - sora-data:/var/lib/postgresql/data
+    indexer:
+        build: indexer
+        restart: always
+        environment:
+            POSTGRES: postgresql://postgres:postgres@postgres:5432/postgres
+            SUBSTRATE: ws://archive:9944
+
+    backend:
+        build: backend
+        restart: always
+        environment:
+            POSTGRES: postgresql://postgres:postgres@postgres:5432/postgres
+            SUBSTRATE: ws://archive:9944
+
+    frontend:
+        build: 
+            context: frontend
+            args:
+                BACKEND: http://backend:8080
+        restart: always
+        ports:
+            - 3000:3000
+
+volumes:
+    sora-archive:
+        external: true
+        name: sora2-node
+    sora-data:
