@@ -52,9 +52,18 @@ async function main() {
 
     let lastBlock = meta.last_block;
     while (true) {
-        const blockHash = await api.rpc.chain.getBlockHash(lastBlock);
-        const signedBlock = await api.rpc.chain.getBlock(blockHash);
-        const blockEvents = await api.query.system.events.at(signedBlock.block.header.hash);
+        let blockHash;
+        let signedBlock;
+        let blockEvents;
+        try {
+            blockHash = await api.rpc.chain.getBlockHash(lastBlock);
+            signedBlock = await api.rpc.chain.getBlock(blockHash);
+            blockEvents = await api.query.system.events.at(signedBlock.block.header.hash);
+        } catch (e) {
+            console.log(`Block ${lastBlock} is not ready yet, waiting`);
+            await new Promise(res => setTimeout(res, 6000));
+            continue;
+        }
 
         for (let extrinsicIndex in signedBlock.block.extrinsics) {
             const events = blockEvents.filter(({ phase }) =>
