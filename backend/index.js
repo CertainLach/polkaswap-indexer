@@ -39,7 +39,7 @@ let schema = buildSchema(`
 function formatPrecision(num, precision) {
     num = num.padStart(precision + 1, '0');
 
-    return num.slice(0, 1) + '.' + num.slice(1);
+    return num.slice(0, -precision) + '.' + num.slice(-precision);
 }
 
 class Exchange {
