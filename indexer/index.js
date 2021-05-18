@@ -39,6 +39,49 @@ async function main() {
         CREATE UNIQUE INDEX IF NOT EXISTS exchange_location ON exchanges (block_id, extrinsic_index);
         CREATE INDEX IF NOT EXISTS caller ON exchanges (caller);
 
+        CREATE TABLE IF NOT EXISTS transactions (
+            block_id BIGINT NOT NULL,
+            extrinsic_index BIGINT NOT NULL,
+            event_index BIGINT NOT NULL,
+
+            sender TEXT NOT NULL,
+            receiver TEXT NOT NULL,
+            asset TEXT NOT NULL,
+            amount NUMERIC NOT NULL
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS transaction_location ON transactions (block_id, extrinsic_index, event_index);
+        CREATE INDEX IF NOT EXISTS sender ON transactions (sender);
+        CREATE INDEX IF NOT EXISTS receiver ON transactions (receiver);
+
+        CREATE TABLE IF NOT EXISTS balances (
+            holder TEXT NOT NULL,
+            asset TEXT NOT NULL,
+            amount NUMERIC NOT NULL,
+
+            CONSTRAINT balance UNIQUE (holder, asset)
+        );
+        CREATE INDEX IF NOT EXISTS holder ON balances (holder);
+
+        CREATE OR REPLACE FUNCTION balance_update() RETURNS TRIGGER
+        SECURITY DEFINER
+        LANGUAGE plpgsql
+        AS $$
+        BEGIN
+            INSERT INTO balances (holder, asset, amount) VALUES (NEW.sender, NEW.asset, -NEW.amount)
+            ON CONFLICT ON CONSTRAINT balance DO UPDATE SET amount = balances.amount - NEW.amount;
+            INSERT INTO balances (holder, asset, amount) VALUES (NEW.receiver, NEW.asset, NEW.amount)
+            ON CONFLICT ON CONSTRAINT balance DO UPDATE SET amount = balances.amount + NEW.amount;
+            RETURN NEW;
+        END;
+        $$;
+       
+        BEGIN;
+            DROP TRIGGER IF EXISTS balances_update ON transactions;
+            CREATE TRIGGER balances_update AFTER INSERT ON transactions
+            FOR EACH ROW
+            EXECUTE PROCEDURE balance_update();
+        COMMIT;
+
         CREATE TABLE IF NOT EXISTS meta (
             dummy INT,
             last_block BIGINT
@@ -47,6 +90,11 @@ async function main() {
         INSERT INTO meta(dummy, last_block) VALUES (0, 0) ON CONFLICT DO NOTHING;
     `);
     console.log('Migrations done');
+
+    if (process.env.RESET) {
+        await client.query('UPDATE meta SET last_block = 0');
+        console.log('Indexing reset done');
+    }
 
     const meta = (await client.query('SELECT last_block FROM meta')).rows[0];
 
@@ -70,7 +118,8 @@ async function main() {
                 phase.isApplyExtrinsic &&
                 phase.asApplyExtrinsic.eq(extrinsicIndex),
             );
-            for (let event of events) {
+            for (let eventIndex in events) {
+                const event = events[eventIndex];
                 if (event.event.section === 'liquidityProxy' && event.event.method === 'Exchange') {
                     const data = event.event.data;
                     await client.query(
@@ -87,6 +136,51 @@ async function main() {
                             data[6],
                         ].map(v => v.toString()),
                     );
+                } else if (event.event.section === 'currencies' && event.event.method === 'Transferred') {
+                    const data = event.event.data;
+                    await client.query(
+                        'INSERT INTO transactions(block_id, extrinsic_index, event_index, asset, sender, receiver, amount) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING',
+                        [
+                            lastBlock,
+                            extrinsicIndex,
+                            eventIndex,
+
+                            data[0],
+                            data[1],
+                            data[2],
+                            data[3],
+                        ].map(v => v.toString()),
+                    )
+                } else if (event.event.section === 'currencies' && event.event.method === 'Withdrawn') {
+                    const data = event.event.data;
+                    await client.query(
+                        'INSERT INTO transactions(block_id, extrinsic_index, event_index, asset, sender, receiver, amount) VALUES ($1, $2, $3, $4, $5, \'\', $6) ON CONFLICT DO NOTHING',
+                        [
+                            lastBlock,
+                            extrinsicIndex,
+                            eventIndex,
+
+                            data[0],
+                            data[1],
+                            data[2],
+                        ].map(v => v.toString()),
+                    )
+                } else if (event.event.section === 'currencies' && event.event.method === 'Deposited') {
+                    const data = event.event.data;
+                    await client.query(
+                        'INSERT INTO transactions(block_id, extrinsic_index, event_index, asset, sender, receiver, amount) VALUES ($1, $2, $3, $4, \'\', $5, $6) ON CONFLICT DO NOTHING',
+                        [
+                            lastBlock,
+                            extrinsicIndex,
+                            eventIndex,
+
+                            data[0],
+                            data[1],
+                            data[2],
+                        ].map(v => v.toString()),
+                    )
+                } else if (event.event.section === 'currencies') {
+                    throw new Error(event.event.method + event.event.data.toJSON())
                 }
             }
         }
