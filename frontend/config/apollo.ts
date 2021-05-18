@@ -10,8 +10,6 @@ const link = createHttpLink({
     fetch,
 });
 
-console.log(GRAPHQL_URL);
-
 export default withApollo(
     ({ initialState }) =>
         new ApolloClient({
