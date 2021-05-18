@@ -82,6 +82,13 @@ async function main() {
             EXECUTE PROCEDURE balance_update();
         COMMIT;
 
+        CREATE TABLE IF NOT EXISTS block_timestamps (
+            block_id BIGINT NOT NULL,
+            block_ts TIMESTAMP NOT NULL
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS block_id ON block_timestamps (block_id);
+        CREATE INDEX IF NOT EXISTS block_ts ON block_timestamps (block_ts);
+
         CREATE TABLE IF NOT EXISTS meta (
             dummy INT,
             last_block BIGINT
@@ -113,7 +120,19 @@ async function main() {
             continue;
         }
 
-        for (let extrinsicIndex in signedBlock.block.extrinsics) {
+        const extrinsics = signedBlock.block.extrinsics.toArray();
+        for (let extrinsicIndex in extrinsics) {
+            const extrinsic = extrinsics[extrinsicIndex];
+            if (extrinsic && extrinsic.method.section === 'timestamp' && extrinsic.method.method === 'set') {
+                await client.query(
+                    'INSERT INTO block_timestamps(block_id, block_ts) VALUES ($1, to_timestamp($2::BIGINT / 1000)) ON CONFLICT DO NOTHING',
+                    [
+                        lastBlock,
+                        extrinsic.method.args[0],
+                    ].map(v => v.toString()),
+                );
+            }
+
             const events = blockEvents.filter(({ phase }) =>
                 phase.isApplyExtrinsic &&
                 phase.asApplyExtrinsic.eq(extrinsicIndex),
@@ -179,8 +198,6 @@ async function main() {
                             data[2],
                         ].map(v => v.toString()),
                     )
-                } else if (event.event.section === 'currencies') {
-                    throw new Error(event.event.method + event.event.data.toJSON())
                 }
             }
         }
