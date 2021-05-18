@@ -32,9 +32,13 @@ const LOAD_ASSET = gql`
 `;
 
 function formatPrecision(num: string, decimals: number) {
+	let minus = num.startsWith('-');
+	if (minus) num = num.slice(1);
 	num = num.padStart(decimals + 1, '0');
 
-	return num.slice(0, -decimals) + '.' + num.slice(-decimals);
+	num = num.slice(0, -decimals) + '.' + num.slice(-decimals);
+	if (minus) num = '-' + num;
+	return num;
 }
 
 export function Asset(props: { id: string }) {
