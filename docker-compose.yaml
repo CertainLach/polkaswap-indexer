@@ -55,6 +55,4 @@ services:
 
 volumes:
     sora-archive:
-        external: true
-        name: sora2-node
     sora-data:
