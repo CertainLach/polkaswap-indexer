@@ -1,19 +1,18 @@
-import { Container, TextField, Button, Paper, TableContainer, Table, TableCell, TableHead, TableBody, TableRow, CircularProgress, Card, CardContent, CardActions } from '@material-ui/core';
-import React, { useState } from 'react';
 import { gql, useQuery } from '@apollo/client';
-import * as styles from '../../styles/Home.module.css';
-import { useNumberQuery, useStringQuery } from '../../config/useQuery';
-import { Asset, AssetCount, AssetPath } from '../components/asset';
-import { LoadingSection, Section, Sections } from '../components/sections';
+import { Button, Card, CardActions, CardContent, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField } from '@material-ui/core';
+import React, { useState } from 'react';
+import { useStringQuery } from '../../config/useQuery';
+import { Asset, AssetCount } from '../../components/asset';
+import { LoadingSection, Section, Sections } from '../../components/sections';
 
 const GET_BALANCES = gql`
-	query Exchanges($caller: String!){
-		balances(caller: $caller) {
-			asset,
-			amount,
-			convertedAmount(target: "0x0200000000000000000000000000000000000000000000000000000000000000"),
-	  	}
-	}
+  query Exchanges($caller: String!){
+    balances(caller: $caller) {
+      asset,
+      amount,
+      convertedAmount(target: "0x0200000000000000000000000000000000000000000000000000000000000000"),
+    }
+  }
 `;
 
 function HomeSettings() {
@@ -75,16 +74,16 @@ export default function Home() {
       <Section>
         Total balance: <AssetCount id={'0x0200000000000000000000000000000000000000000000000000000000000000'} amount={total} />
       </Section>
-      <TableContainer className={styles.table} component={Paper}>
+      <TableContainer component={Paper}>
         <Table>
           <TableHead>
             <TableRow>
               <TableCell>
                 Asset
-		  				</TableCell>
+              </TableCell>
               <TableCell>
                 Balance
-		  				</TableCell>
+              </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>

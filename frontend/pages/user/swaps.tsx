@@ -1,10 +1,9 @@
-import { Container, TextField, Button, Paper, TableContainer, Table, TableCell, TableHead, TableBody, TableRow, CircularProgress, CardContent, Card } from '@material-ui/core';
-import React, { useState } from 'react';
 import { gql, useQuery } from '@apollo/client';
-import * as styles from '../../styles/Home.module.css';
+import { Button, Card, CardContent, CircularProgress, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField } from '@material-ui/core';
+import React, { useState } from 'react';
 import { useNumberQuery, useStringQuery } from '../../config/useQuery';
-import { AssetCount } from '../components/asset';
-import { LoadingSection, Section, Sections } from '../components/sections';
+import { AssetCount } from '../../components/asset';
+import { LoadingSection, Section, Sections } from '../../components/sections';
 
 const GET_EXCHANGES = gql`
   query Exchanges($caller: String!, $limit: Int, $offset: Int){
@@ -26,12 +25,14 @@ function HomeSettings() {
   const [user, setUser] = useStringQuery('user', '');
   const [userField, setUserField] = useState(user);
 
-  return <Paper className={styles.settings}>
+  return <Card>
     <TextField placeholder="User" value={userField} onChange={e => setUserField(e.target.value)}></TextField>
-    <Button onClick={() => {
-      setUser(userField);
-    }}>Goto</Button>
-  </Paper>
+    <CardContent>
+      <Button size="small" onClick={() => {
+        setUser(userField);
+      }}>Goto</Button>
+    </CardContent>
+  </Card>
 }
 
 export default function Home() {
@@ -76,7 +77,7 @@ export default function Home() {
           </div>
         </>}
       </Section>
-      <TableContainer className={styles.table} component={Paper}>
+      <TableContainer component={Paper}>
         <Table>
           <TableHead>
             <TableRow>
