@@ -1,7 +1,6 @@
 {
   "compilerOptions": {
-    "strict": true,
-    "target": "es5",
+    "target": "es2020",
     "lib": [
       "dom",
       "dom.iterable",
@@ -16,7 +15,8 @@
     "moduleResolution": "node",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "jsx": "preserve"
+    "jsx": "preserve",
+    "strict": false
   },
   "include": [
     "next-env.d.ts",
