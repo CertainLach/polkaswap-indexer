@@ -1,6 +1,6 @@
 import { gql, useQuery } from "@apollo/react-hooks";
 import { Avatar } from "@material-ui/core";
-import React from "react";
+import React, { ReactElement } from "react";
 import styled from "styled-components";
 
 const AssetContainer = styled.div`
@@ -80,7 +80,7 @@ const PathSeparator = styled.div`
 `;
 
 export function AssetPath(props: { ids: string[] }) {
-	const out = [];
+	const out: ReactElement[] = [];
 	props.ids.forEach((a, i) => {
 		if (i !== 0)
 			out.push(<PathSeparator key={i * 2}>{' => '}</PathSeparator>);
