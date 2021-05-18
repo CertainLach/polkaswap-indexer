@@ -8,12 +8,20 @@ let port = 8080;
 let schema = buildSchema(`
     type Query {
         exchanges(caller: String!, offset: Int, limit: Int): Exchanges!,
+        balances(caller: String!): [Balance!]!,
         asset(id: String!): Asset,
     }
     
     type Exchanges {
         count: Int!,
-        exchanges: [Exchange!],
+        exchanges: [Exchange!]!,
+    }
+
+    type Balance {
+        asset: String!,
+        amount: String!,
+        conversionPath(target: String!): [String!],
+        convertedAmount(target: String!): String,
     }
 
     type Exchange {
@@ -21,13 +29,9 @@ let schema = buildSchema(`
         blockId: Int!,
         extrinsicIndex: Int!,
         source: String!,
-        sourceAsset: Asset!,
         sourceAmount: String!,
-        sourceAmountWithPrecision: String!,
         target: String!,
-        targetAsset: Asset!,
         targetAmount: String!,
-        targetAmountWithPrecision: String!,
     }
 
     type Asset {
@@ -35,12 +39,6 @@ let schema = buildSchema(`
         precision: Int!,
     }
 `);
-
-function formatPrecision(num, precision) {
-    num = num.padStart(precision + 1, '0');
-
-    return num.slice(0, -precision) + '.' + num.slice(-precision);
-}
 
 class Exchange {
     constructor(api, data) {
@@ -55,18 +53,6 @@ class Exchange {
     get id() {
         return `#${this.blockId}/${this.extrinsicIndex}`
     }
-    async sourceAsset() {
-        return await Asset.load(this.api, this.source);
-    }
-    async sourceAmountWithPrecision() {
-        return formatPrecision(this.sourceAmount, (await this.sourceAsset()).precision);
-    }
-    async targetAsset() {
-        return await Asset.load(this.api, this.target);
-    }
-    async targetAmountWithPrecision() {
-        return formatPrecision(this.targetAmount, (await this.targetAsset()).precision);
-    }
 }
 
 class Asset {
@@ -80,6 +66,81 @@ class Asset {
         const asset = new Asset((await api.query.assets.assetInfos(id)).toJSON());
         return Asset.CACHE[id] = asset;
     }
+}
+
+class Balance {
+    constructor(api, data) {
+        this.api = api;
+        this.asset = data.asset;
+        this.amount = data.amount;
+    }
+    conversionPath(args) {
+        return Conversions.findPathFromTo(this.asset, args.target);
+    }
+    async convertedAmount(args) {
+        if (this.amount === '')
+            return '0';
+        if (this.asset === args.target)
+            return this.amount;
+        return await quote(this.api, this.asset, args.target, this.amount.toString());
+    }
+}
+
+class Conversions {
+    static PAIRS = {};
+    static async enablePair(from, to) {
+        if (!(from in Conversions.PAIRS)) Conversions.PAIRS[from] = new Set();
+        Conversions.PAIRS[from].add(to);
+    }
+    static async loadPairs(api) {
+        const pairs = await api.query.tradingPair.enabledSources.entries(0);
+        const fromTo = pairs.map(p => p[0].args[1].toJSON());
+        for (let entry of fromTo) {
+            this.enablePair(entry.base_asset_id, entry.target_asset_id);
+            this.enablePair(entry.target_asset_id, entry.base_asset_id);
+        }
+    }
+    static findPathFromTo(from, to, visited = new Set()) {
+        const out = [];
+        out.push(from);
+        if (from === to) {
+            return out;
+        }
+        if (!Conversions.PAIRS[from]) {
+            return null;
+        }
+        if (Conversions.PAIRS[from].has(to)) {
+            out.push(to);
+            return out;
+        }
+        const possibleResults = [];
+        for (let target of Conversions.PAIRS[from]) {
+            if (visited.has(target)) {
+                continue;
+            }
+            visited.add(target);
+            const result = Conversions.findPathFromTo(target, to, new Set([...visited]));
+            if (result !== null) {
+                possibleResults.push(result);
+            }
+        }
+        if (possibleResults.length === 0)
+            return null;
+        const bestResult = possibleResults.sort((a, b) => a.length - b.length)[0];
+        out.push(...bestResult);
+        return out;
+    }
+}
+
+async function quote(api, from, to, amount) {
+    amount = amount.toString();
+    let minus = amount.startsWith('-');
+    if (minus) amount = amount.slice(1);
+    const result = await api.rpc.liquidityProxy.quote(0, from, to, amount.toString(), 'WithDesiredInput', [], 'Disabled');
+    if (result.isNone) return null;
+    amount = result.unwrap().amount.toString();
+    if (minus) amount = '-' + amount;
+    return amount;
 }
 
 class SchemaRoot {
@@ -105,6 +166,10 @@ class SchemaRoot {
             exchanges: result.rows.map(r => new Exchange(this.api, r)),
         };
     }
+    async balances(args) {
+        const result = await this.pool.query('SELECT asset, amount FROM balances WHERE holder = $1', [args.caller]);
+        return result.rows.map(r => new Balance(this.api, r));
+    }
     async asset(args) {
         return await Asset.load(this.api, args.id);
     }
@@ -119,6 +184,7 @@ async function main() {
     const api = await ApiPromise.create({
         provider,
         types: require('@sora-substrate/type-definitions').types,
+        rpc: require('@sora-substrate/type-definitions').rpc,
     });
 
     const app = express();
@@ -127,6 +193,8 @@ async function main() {
         rootValue: new SchemaRoot(pool, api),
         graphiql: true,
     }));
+
+    await Conversions.loadPairs(api);
 
     app.listen(port);
 }
