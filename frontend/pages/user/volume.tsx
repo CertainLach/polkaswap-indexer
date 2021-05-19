@@ -1,10 +1,11 @@
 import { gql, useQuery } from '@apollo/client';
 import { Button, Card, CardActions, CardContent, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField } from '@material-ui/core';
 import React, { useState } from 'react';
-import { useStringQuery } from '../../config/useQuery';
+import { useNumberQuery, useStringQuery } from '../../config/useQuery';
 import { Asset, AssetCount } from '../../components/asset';
 import { LoadingSection, Section, Sections } from '../../components/sections';
 import styled from 'styled-components';
+import { BlockInput } from '../../components/blockInput';
 
 const GET_DELTA = gql`
   query Exchanges($from: Int!, $to: Int!, $caller: String!){
@@ -18,7 +19,6 @@ const GET_DELTA = gql`
       convertedWithdrawn(target: "0x0200000000000000000000000000000000000000000000000000000000000000"),
       profit,
       convertedProfit(target: "0x0200000000000000000000000000000000000000000000000000000000000000"),
-      txTotal,
     }
   }
 `;
@@ -45,12 +45,14 @@ const ReceivedCell = styled(TableCell)`
 
 export default function Home() {
   const [user, _] = useStringQuery('user', '');
+  const [fromBlock, setFromBlock] = useNumberQuery('from', 0, v => v >= 0);
+  const [toBlock, setToBlock] = useNumberQuery('to', 600000, v => v >= 0);
 
   let { error, data, loading } = useQuery(GET_DELTA, {
     variables: {
       caller: user,
-      from: 1,
-      to: 300000,
+      from: fromBlock,
+      to: toBlock,
     }
   });
   if (error) {
@@ -113,6 +115,10 @@ export default function Home() {
   return <Sections>
 
     <HomeSettings />
+    <Section>
+      <BlockInput name="from" label="Start block" value={fromBlock} setValue={setFromBlock}></BlockInput>
+      <BlockInput name="to" label="End block" value={toBlock} setValue={setToBlock}></BlockInput>
+    </Section>
     {loading ? <LoadingSection /> : <>
       <Section>
         Total delta: <AssetCount id={'0x0200000000000000000000000000000000000000000000000000000000000000'} amount={total} />
