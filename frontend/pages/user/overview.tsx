@@ -1,5 +1,5 @@
 import { gql, useQuery } from '@apollo/client';
-import { Button, Card, CardActions, CardContent, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField } from '@material-ui/core';
+import { Button, Card, CardActions, CardContent, Checkbox, FormControlLabel, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField } from '@material-ui/core';
 import React, { useState } from 'react';
 import { useStringQuery } from '../../config/useQuery';
 import { Asset, AssetCount } from '../../components/asset';
@@ -32,6 +32,7 @@ function HomeSettings() {
 }
 
 export default function Home() {
+  const [showOriginal, setShowOriginal] = useState(false);
   const [user, _] = useStringQuery('user', '');
 
   let { error, data, loading } = useQuery(GET_BALANCES, {
@@ -64,12 +65,18 @@ export default function Home() {
       <Asset id={b.asset}></Asset>
     </TableCell>
     <TableCell>
-      {b.convertedAmount ? <AssetCount id={'0x0200000000000000000000000000000000000000000000000000000000000000'} amount={b.convertedAmount} /> : <AssetCount id={b.asset} amount={b.amount} />}
+      {b.convertedAmount && !showOriginal ? <AssetCount id={'0x0200000000000000000000000000000000000000000000000000000000000000'} amount={b.convertedAmount} /> : <AssetCount id={b.asset} amount={b.amount} />}
     </TableCell>
   </TableRow>)
   return <Sections>
 
     <HomeSettings />
+    <Section>
+      <FormControlLabel
+        control={<Checkbox value={showOriginal} onChange={e=>setShowOriginal(e.target.checked)}/>}
+        label="Skip conversion"
+      />
+    </Section>
     {loading ? <LoadingSection /> : <>
       <Section>
         Total balance: <AssetCount id={'0x0200000000000000000000000000000000000000000000000000000000000000'} amount={total} />
