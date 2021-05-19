@@ -41,6 +41,20 @@ function formatPrecision(num: string, decimals: number) {
 	return num;
 }
 
+function humanizePrecision(value) {
+	// 0.0000000 => 0
+	if (/^0+\.0*$/.test(value))
+		return 0;
+	// 0.00000032123
+	let significant = value.match(/^[0\.]+[0-9]{4}/);
+	if (significant && significant !== value)
+		return significant + '~';
+	let significantDecimals = value.match(/^[0-9]+\.[0-9]{1,4}/);
+	if (significantDecimals && significantDecimals !== value)
+		return significantDecimals + '~';
+	return value;
+}
+
 export function Asset(props: { id: string }) {
 	let { data, loading, error } = useQuery(LOAD_ASSET, {
 		variables: {
@@ -71,7 +85,7 @@ export function AssetCount(props: { id: string, amount: string }) {
 	} else if (loading) {
 		return <>{props.amount} <LoadingAsset id={props.id} /></>
 	} else {
-		return <>{formatPrecision(props.amount, data.precision)} <LoadedAsset id={props.id} name={data.name} decimals={data.precision} /></>
+		return <><LoadedAsset id={props.id} name={data.name} decimals={data.precision} /> {humanizePrecision(formatPrecision(props.amount, data.precision))}</>
 	}
 }
 
