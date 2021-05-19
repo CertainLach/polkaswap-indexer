@@ -12,6 +12,7 @@ let schema = buildSchema(`
         balances(caller: String!): [Balance!]!,
         balanceDelta(from: Int!, to: Int!, caller: String!): [BalanceDelta!]!,
         asset(id: String!): Asset,
+        dateToBlock(date: String!): Int!,
     }
 
     type BalanceDelta {
@@ -24,7 +25,6 @@ let schema = buildSchema(`
         convertedWithdrawn(target: String!): String,
         profit: String!,
         convertedProfit(target: String!): String,
-        txTotal: Int!,
     }
     
     type Exchanges {
@@ -112,10 +112,6 @@ class BalanceDelta {
 
     get profit() {
         return (BigInt(this.deposited) - BigInt(this.withdrawn)).toString();
-    }
-
-    get txTotal() {
-        return this.txWithdrawn + this.txDeposited;
     }
 
     convertedProfit(args) {
@@ -265,6 +261,14 @@ class SchemaRoot {
             from, to, caller
         ]);
         return result.rows.map(r => new BalanceDelta(r));
+    }
+    async dateToBlock({ date }) {
+        const result = await this.pool.query(
+            'SELECT block_id FROM block_timestamps WHERE block_ts <= $1::TIMESTAMP ORDER BY block_id DESC LIMIT 1',
+            [date],
+        );
+        const blockId = result.rows[0]?.block_id ?? 0;
+        return blockId;
     }
 };
 
