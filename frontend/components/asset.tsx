@@ -83,7 +83,7 @@ export function AssetCount(props: { id: string, amount: string }) {
 	if (error) {
 		return <>Error: {error.message}</>
 	} else if (loading) {
-		return <>{props.amount} <LoadingAsset id={props.id} /></>
+		return <><LoadingAsset id={props.id} /> {props.amount}</>
 	} else {
 		return <><LoadedAsset id={props.id} name={data.name} decimals={data.precision} /> {humanizePrecision(formatPrecision(props.amount, data.precision))}</>
 	}
