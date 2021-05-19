@@ -25,7 +25,7 @@ export function BlockInput(props: { name: string, label: string, value: number, 
         <TextField label={props.label} hiddenLabel={false} value={props.value} defaultValue={props.value} type="number" onChange={e => props.setValue(+e.target.value)}></TextField>
         <LocalizationProvider dateAdapter={DateFnsUtils}>
             <DateTimePicker
-                renderInput={(params) => <TextField {...params} label={'Deduce from date'} helperText={undefined} />}
+                renderInput={(params) => <TextField {...params} label={'Date/time'} helperText={undefined} />}
                 label="DateTimePicker"
                 value={date}
                 onChange={d => {

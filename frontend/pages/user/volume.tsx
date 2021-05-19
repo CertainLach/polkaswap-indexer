@@ -121,7 +121,7 @@ export default function Home() {
     </Section>
     {loading ? <LoadingSection /> : <>
       <Section>
-        Total delta: <AssetCount id={'0x0200000000000000000000000000000000000000000000000000000000000000'} amount={total} />
+        Total volume: <AssetCount id={'0x0200000000000000000000000000000000000000000000000000000000000000'} amount={total} />
       </Section>
       <TableContainer component={Paper}>
         <Table>
@@ -137,7 +137,7 @@ export default function Home() {
                 Withdrawn
               </TableCell>
               <TableCell>
-                Delta
+                Volume
               </TableCell>
             </TableRow>
           </TableHead>
