@@ -2,6 +2,7 @@ const { ApiPromise, WsProvider } = require('@polkadot/api');
 const express = require('express');
 const { buildSchema } = require('graphql');
 const { graphqlHTTP } = require('express-graphql');
+const BN = require('bignumber.js');
 const pg = require('pg');
 let port = 8080;
 
@@ -9,7 +10,21 @@ let schema = buildSchema(`
     type Query {
         exchanges(caller: String!, offset: Int, limit: Int): Exchanges!,
         balances(caller: String!): [Balance!]!,
+        balanceDelta(from: Int!, to: Int!, caller: String!): [BalanceDelta!]!,
         asset(id: String!): Asset,
+    }
+
+    type BalanceDelta {
+        asset: String!
+        txDeposited: Int!,
+        deposited: String!,
+        convertedDeposited(target: String!): String,
+        txWithdrawn: Int!,
+        withdrawn: String!,
+        convertedWithdrawn(target: String!): String,
+        profit: String!,
+        convertedProfit(target: String!): String,
+        txTotal: Int!,
     }
     
     type Exchanges {
@@ -82,22 +97,66 @@ class Balance {
             return '0';
         if (this.asset === args.target)
             return this.amount;
-        return await quote(this.api, this.asset, args.target, this.amount.toString());
+        return Conversions.convertPrice(this.asset, args.target, this.amount);
     }
+}
+
+class BalanceDelta {
+    constructor(data) {
+        this.asset = data.asset;
+        this.deposited = data.deposited;
+        this.withdrawn = data.withdrawn;
+        this.txWithdrawn = data.tx_withdrawn;
+        this.txDeposited = data.tx_deposited;
+    }
+
+    get profit() {
+        return (BigInt(this.deposited) - BigInt(this.withdrawn)).toString();
+    }
+
+    get txTotal() {
+        return this.txWithdrawn + this.txDeposited;
+    }
+
+    convertedProfit(args) {
+        return Conversions.convertPrice(this.asset, args.target, this.profit);
+    }
+
+    convertedDeposited(args) {
+        return Conversions.convertPrice(this.asset, args.target, this.deposited);
+    }
+
+    convertedWithdrawn(args) {
+        return Conversions.convertPrice(this.asset, args.target, this.withdrawn);
+    }
+}
+
+function formatPrecision(num, decimals) {
+    let minus = num.startsWith('-');
+    if (minus) num = num.slice(1);
+    num = num.padStart(decimals + 1, '0');
+
+    num = num.slice(0, -decimals) + '.' + num.slice(-decimals);
+    if (minus) num = '-' + num;
+    return num;
 }
 
 class Conversions {
     static PAIRS = {};
-    static async enablePair(from, to) {
-        if (!(from in Conversions.PAIRS)) Conversions.PAIRS[from] = new Set();
-        Conversions.PAIRS[from].add(to);
+    static async enablePair(api, from, to) {
+        if (!(from in Conversions.PAIRS)) Conversions.PAIRS[from] = {};
+        const fromAsset = await Asset.load(api, from);
+        const toAsset = await Asset.load(api, to);
+        const amount = 10n ** BigInt(fromAsset.precision);
+        const price = await quote(api, from, to, amount.toString());
+        Conversions.PAIRS[from][to] = formatPrecision(price, toAsset.precision);
     }
     static async loadPairs(api) {
         const pairs = await api.query.tradingPair.enabledSources.entries(0);
-        const fromTo = pairs.map(p => p[0].args[1].toJSON());
-        for (let entry of fromTo) {
-            this.enablePair(entry.base_asset_id, entry.target_asset_id);
-            this.enablePair(entry.target_asset_id, entry.base_asset_id);
+        const fromTo = pairs.map(p => p[0].args[1].toJSON()).map(e => [e.base_asset_id, e.target_asset_id]);
+        for (let [a, b] of fromTo) {
+            this.enablePair(api, a, b);
+            this.enablePair(api, b, a);
         }
     }
     static findPathFromTo(from, to, visited = new Set()) {
@@ -109,12 +168,12 @@ class Conversions {
         if (!Conversions.PAIRS[from]) {
             return null;
         }
-        if (Conversions.PAIRS[from].has(to)) {
+        if (Conversions.PAIRS[from][to]) {
             out.push(to);
             return out;
         }
         const possibleResults = [];
-        for (let target of Conversions.PAIRS[from]) {
+        for (let target in Conversions.PAIRS[from]) {
             if (visited.has(target)) {
                 continue;
             }
@@ -128,6 +187,19 @@ class Conversions {
             return null;
         const bestResult = possibleResults.sort((a, b) => a.length - b.length)[0];
         out.push(...bestResult);
+        return out;
+    }
+    static convertPrice(from, to, value) {
+        const path = this.findPathFromTo(from, to);
+        if (path === null) {
+            return null;
+        }
+        value = new BN(value);
+        for (let i = 0; i < path.length - 1; i++) {
+            const mult = new BN(this.PAIRS[path[i]]?.[path[i + 1]]);
+            value = value.times(mult);
+        }
+        const out = value.toFixed(0);
         return out;
     }
 }
@@ -172,6 +244,27 @@ class SchemaRoot {
     }
     async asset(args) {
         return await Asset.load(this.api, args.id);
+    }
+    async balanceDelta({ from, to, caller }) {
+        const result = await this.pool.query(`
+            SELECT asset, SUM(withdrawn) AS withdrawn, SUM(deposited) AS deposited, SUM(tx_withdrawn) AS tx_withdrawn, SUM(tx_deposited) AS tx_deposited
+            FROM (
+                SELECT asset, SUM(amount) AS withdrawn, 0 AS deposited, COUNT(*) AS tx_withdrawn, 0 AS tx_deposited
+                FROM transactions
+                WHERE block_id > $1 AND block_id < $2
+                AND sender = $3
+                GROUP BY asset
+            UNION
+                SELECT asset, 0 as withdrawn, SUM(amount) AS deposited, 0 AS tx_withdrawn, COUNT(*) AS tx_deposited
+                FROM transactions
+                WHERE block_id > $1 AND block_id < $2
+                AND receiver = $3
+                GROUP BY asset
+            ) AS temp GROUP BY asset;
+        `, [
+            from, to, caller
+        ]);
+        return result.rows.map(r => new BalanceDelta(r));
     }
 };
 
