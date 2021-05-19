@@ -46,10 +46,10 @@ function humanizePrecision(value) {
 	if (/^0+\.0*$/.test(value))
 		return 0;
 	// 0.00000032123
-	let significant = value.match(/^[0\.]+[0-9]{4}/);
+	let significant = value.match(/^-?[0\.]+[0-9]{4}/);
 	if (significant && significant !== value)
 		return significant + '~';
-	let significantDecimals = value.match(/^[0-9]+\.[0-9]{1,4}/);
+	let significantDecimals = value.match(/^-?[0-9]+\.[0-9]{1,4}/);
 	if (significantDecimals && significantDecimals !== value)
 		return significantDecimals + '~';
 	return value;
