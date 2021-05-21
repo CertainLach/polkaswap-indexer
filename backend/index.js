@@ -12,6 +12,7 @@ let schema = buildSchema(`
         balances(caller: String!): [Balance!]!,
         balanceDelta(from: Int!, to: Int!, caller: String!): [BalanceDelta!]!,
         asset(id: String!): Asset,
+        assets(): [Asset!]!,
         dateToBlock(date: String!): Int!,
     }
 
@@ -50,6 +51,7 @@ let schema = buildSchema(`
     }
 
     type Asset {
+        id: String!,
         name: String!,
         precision: Int!,
     }
@@ -73,6 +75,7 @@ class Exchange {
 class Asset {
     static CACHE = {};
     constructor(data) {
+        this.id = Buffer.from(data[0].slice(2), 'hex').toString('utf-8');
         this.name = Buffer.from(data[1].slice(2), 'hex').toString('utf-8');
         this.precision = parseInt(data[2]);
     }
@@ -240,6 +243,9 @@ class SchemaRoot {
     }
     async asset(args) {
         return await Asset.load(this.api, args.id);
+    }
+    async assets(_args) {
+        return Object.values(Asset.CACHE);
     }
     async balanceDelta({ from, to, caller }) {
         const result = await this.pool.query(`
