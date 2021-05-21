@@ -10,10 +10,16 @@ let schema = buildSchema(`
     type Query {
         exchanges(caller: String!, offset: Int, limit: Int): Exchanges!,
         balances(caller: String!): [Balance!]!,
+        balanceTop(asset: String!): [BalanceTopEntry!]!,
         balanceDelta(from: Int!, to: Int!, caller: String!): [BalanceDelta!]!,
         asset(id: String!): Asset,
-        assets(): [Asset!]!,
+        assets: [Asset!]!,
         dateToBlock(date: String!): Int!,
+    }
+
+    type BalanceTopEntry {
+        holder: String!,
+        amount: String!,
     }
 
     type BalanceDelta {
@@ -270,6 +276,16 @@ class SchemaRoot {
             from, to, caller
         ]);
         return result.rows.map(r => new BalanceDelta(r));
+    }
+    async balanceTop({ asset }) {
+        return (await this.pool.query(`
+            SELECT holder, amount FROM balances
+            WHERE asset = $1
+            ORDER BY amount DESC
+            LIMIT 100
+        `, [
+            asset,
+        ])).rows;
     }
     async dateToBlock({ date }) {
         const result = await this.pool.query(
