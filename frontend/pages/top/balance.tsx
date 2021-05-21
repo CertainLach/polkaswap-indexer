@@ -1,11 +1,11 @@
 import { gql, useQuery } from '@apollo/client';
 import { Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@material-ui/core';
 import React from 'react';
-import { AssetCount } from '../components/asset';
-import { AssetSelector } from '../components/assetSelector';
-import { LoadingSection, Section, Sections } from '../components/sections';
-import { useStringQuery } from '../config/useQuery';
-import { DEFAULT_ASSET_ID } from '../config/xor';
+import { AssetCount } from '../../components/asset';
+import { AssetSelector } from '../../components/assetSelector';
+import { LoadingSection, Section, Sections } from '../../components/sections';
+import { useStringQuery } from '../../config/useQuery';
+import { DEFAULT_ASSET_ID } from '../../config/xor';
 
 const GET_TOP = gql`
   query Exchanges($asset: String!){
