@@ -52,6 +52,7 @@ let schema = buildSchema(`
 
     type Asset {
         id: String!,
+        shortName: String!,
         name: String!,
         precision: Int!,
     }
@@ -74,14 +75,15 @@ class Exchange {
 
 class Asset {
     static CACHE = {};
-    constructor(data) {
-        this.id = Buffer.from(data[0].slice(2), 'hex').toString('utf-8');
+    constructor(id, data) {
+        this.id = id;
+        this.shortName = Buffer.from(data[0].slice(2), 'hex').toString('utf-8');
         this.name = Buffer.from(data[1].slice(2), 'hex').toString('utf-8');
         this.precision = parseInt(data[2]);
     }
     static async load(api, id) {
         if (Asset.CACHE[id]) return Asset.CACHE[id];
-        const asset = new Asset((await api.query.assets.assetInfos(id)).toJSON());
+        const asset = new Asset(id, (await api.query.assets.assetInfos(id)).toJSON());
         return Asset.CACHE[id] = asset;
     }
 }
