@@ -249,6 +249,7 @@ class SchemaRoot {
                 FROM transactions
                 WHERE block_id > $1 AND block_id < $2
                 AND sender = $3
+                AND receiver != 'FEE'
                 GROUP BY asset
             UNION
                 SELECT asset, 0 as withdrawn, SUM(amount) AS deposited, 0 AS tx_withdrawn, COUNT(*) AS tx_deposited
