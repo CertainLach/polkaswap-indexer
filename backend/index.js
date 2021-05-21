@@ -11,6 +11,7 @@ let schema = buildSchema(`
         exchanges(caller: String!, offset: Int, limit: Int): Exchanges!,
         balances(caller: String!): [Balance!]!,
         balanceTop(asset: String!): [BalanceTopEntry!]!,
+        exchangeTop: [ExchangeTopEntry!]!,
         balanceDelta(from: Int!, to: Int!, caller: String!): [BalanceDelta!]!,
         asset(id: String!): Asset,
         assets: [Asset!]!,
@@ -20,6 +21,11 @@ let schema = buildSchema(`
     type BalanceTopEntry {
         holder: String!,
         amount: String!,
+    }
+
+    type ExchangeTopEntry {
+        caller: String!,
+        count: Int!,
     }
 
     type BalanceDelta {
@@ -282,10 +288,15 @@ class SchemaRoot {
             SELECT holder, amount FROM balances
             WHERE asset = $1
             ORDER BY amount DESC
-            LIMIT 100
+            LIMIT 500
         `, [
             asset,
         ])).rows;
+    }
+    async exchangeTop() {
+        return (await this.pool.query(`
+            SELECT caller, COUNT(*) AS count FROM exchanges GROUP BY caller ORDER BY count DESC LIMIT 500
+        `)).rows;
     }
     async dateToBlock({ date }) {
         const result = await this.pool.query(
