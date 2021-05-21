@@ -1,6 +1,8 @@
 const { ApiPromise, WsProvider } = require('@polkadot/api');
 const pg = require('pg');
 
+const SORA_ASSET_ID = '0x0200000000000000000000000000000000000000000000000000000000000000';
+
 async function main() {
     const provider = new WsProvider(process.env.SUBSTRATE);
 
@@ -196,6 +198,20 @@ async function main() {
                             data[0],
                             data[1],
                             data[2],
+                        ].map(v => v.toString()),
+                    )
+                } else if (event.event.section === 'xorFee' && event.event.method === 'FeeWithdrawn') {
+                    const data = event.event.data;
+                    await client.query(
+                        'INSERT INTO transactions(block_id, extrinsic_index, event_index, asset, sender, receiver, amount) VALUES ($1, $2, $3, $4, $5, \'FEE\', $6) ON CONFLICT DO NOTHING',
+                        [
+                            lastBlock,
+                            extrinsicIndex,
+                            eventIndex,
+
+                            SORA_ASSET_ID,
+                            data[0],
+                            data[1],
                         ].map(v => v.toString()),
                     )
                 }
