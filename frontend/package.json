@@ -11,6 +11,7 @@
     "@apollo/react-hooks": "^4.0.0",
     "@material-ui/core": "^4.11.4",
     "@material-ui/data-grid": "^4.0.0-alpha.28",
+    "@material-ui/lab": "^4.0.0-alpha.58",
     "@material-ui/pickers": "^4.0.0-alpha.12",
     "@types/styled-components": "^5.1.9",
     "apollo-cache-inmemory": "^1.6.6",
