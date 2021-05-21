@@ -4,21 +4,22 @@ import React, { useState } from 'react';
 import { useNumberQuery, useStringQuery } from '../../config/useQuery';
 import { Asset, AssetCount } from '../../components/asset';
 import { LoadingSection, Section, Sections } from '../../components/sections';
-import styled from 'styled-components';
 import { BlockInput } from '../../components/blockInput';
+import { AssetSelector } from '../../components/assetSelector';
+import { DEFAULT_ASSET_ID } from '../../config/xor';
 
 const GET_DELTA = gql`
-  query Exchanges($from: Int!, $to: Int!, $caller: String!){
+  query Exchanges($asset: String!, $from: Int!, $to: Int!, $caller: String!){
     balanceDelta(from: $from, to: $to, caller: $caller) {
       asset,
       txDeposited,
       deposited,
-      convertedDeposited(target: "0x0200000000000000000000000000000000000000000000000000000000000000"),
+      convertedDeposited(target: $asset),
       txWithdrawn,
       withdrawn,
-      convertedWithdrawn(target: "0x0200000000000000000000000000000000000000000000000000000000000000"),
+      convertedWithdrawn(target: $asset),
       profit,
-      convertedProfit(target: "0x0200000000000000000000000000000000000000000000000000000000000000"),
+      convertedProfit(target: $asset),
     }
   }
 `;
@@ -39,17 +40,15 @@ function HomeSettings() {
   </Card>
 }
 
-const ReceivedCell = styled(TableCell)`
-  background: green;
-`;
-
 export default function Home() {
   const [user, _] = useStringQuery('user', '');
+  const [asset, setAsset] = useStringQuery('asset', DEFAULT_ASSET_ID);
   const [fromBlock, setFromBlock] = useNumberQuery('from', 0, v => v >= 0);
   const [toBlock, setToBlock] = useNumberQuery('to', 600000, v => v >= 0);
 
   let { error, data, loading } = useQuery(GET_DELTA, {
     variables: {
+      asset,
       caller: user,
       from: fromBlock,
       to: toBlock,
@@ -79,13 +78,13 @@ export default function Home() {
         <Asset id={b.asset}></Asset>
       </TableCell>
       <TableCell>
-        {b.convertedDeposited ? <AssetCount id={'0x0200000000000000000000000000000000000000000000000000000000000000'} amount={b.convertedDeposited} /> : <AssetCount id={b.asset} amount={b.deposited} />} / {b.txDeposited} txs
+        {b.convertedDeposited ? <AssetCount id={asset} amount={b.convertedDeposited} /> : <AssetCount id={b.asset} amount={b.deposited} />} / {b.txDeposited} txs
       </TableCell>
       <TableCell>
-        {b.convertedWithdrawn ? <AssetCount id={'0x0200000000000000000000000000000000000000000000000000000000000000'} amount={b.convertedWithdrawn} /> : <AssetCount id={b.asset} amount={b.withdrawn} />} / {b.txWithdrawn} txs
+        {b.convertedWithdrawn ? <AssetCount id={asset} amount={b.convertedWithdrawn} /> : <AssetCount id={b.asset} amount={b.withdrawn} />} / {b.txWithdrawn} txs
       </TableCell>
       <TableCell>
-        {b.convertedProfit ? <AssetCount id={'0x0200000000000000000000000000000000000000000000000000000000000000'} amount={b.convertedProfit} /> : <AssetCount id={b.asset} amount={b.profit} />} / {b.txDeposited + b.txWithdrawn} txs
+        {b.convertedProfit ? <AssetCount id={asset} amount={b.convertedProfit} /> : <AssetCount id={b.asset} amount={b.profit} />} / {b.txDeposited + b.txWithdrawn} txs
       </TableCell>
     </TableRow>
   });
@@ -102,13 +101,13 @@ export default function Home() {
       Total
       </TableCell>
     <TableCell>
-      <AssetCount id={'0x0200000000000000000000000000000000000000000000000000000000000000'} amount={totalDeposited} /> / {totalTxDeposited} txs
+      <AssetCount id={asset} amount={totalDeposited} /> / {totalTxDeposited} txs
       </TableCell>
     <TableCell>
-      <AssetCount id={'0x0200000000000000000000000000000000000000000000000000000000000000'} amount={totalWithdrawn} /> / {totalTxWithdrawn} txs
+      <AssetCount id={asset} amount={totalWithdrawn} /> / {totalTxWithdrawn} txs
       </TableCell>
     <TableCell>
-      <AssetCount id={'0x0200000000000000000000000000000000000000000000000000000000000000'} amount={total} /> / {totalTx} txs
+      <AssetCount id={asset} amount={total} /> / {totalTx} txs
       </TableCell>
   </TableRow>;
 
@@ -118,10 +117,11 @@ export default function Home() {
     <Section>
       <BlockInput name="from" label="Start block" value={fromBlock} setValue={setFromBlock}></BlockInput>
       <BlockInput name="to" label="End block" value={toBlock} setValue={setToBlock}></BlockInput>
+      <AssetSelector selected={asset} setSelected={v => setAsset(v)}></AssetSelector>
     </Section>
     {loading ? <LoadingSection /> : <>
       <Section>
-        Total volume: <AssetCount id={'0x0200000000000000000000000000000000000000000000000000000000000000'} amount={total} />
+        Total volume: <AssetCount id={asset} amount={total} />
       </Section>
       <TableContainer component={Paper}>
         <Table>
