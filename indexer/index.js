@@ -175,7 +175,7 @@ async function main() {
                 } else if (event.event.section === 'currencies' && event.event.method === 'Withdrawn') {
                     const data = event.event.data;
                     await client.query(
-                        'INSERT INTO transactions(block_id, extrinsic_index, event_index, asset, sender, receiver, amount) VALUES ($1, $2, $3, $4, $5, \'\', $6) ON CONFLICT DO NOTHING',
+                        'INSERT INTO transactions(block_id, extrinsic_index, event_index, asset, sender, receiver, amount) VALUES ($1, $2, $3, $4, $5, \'TECH_WITHDRAW\', $6) ON CONFLICT DO NOTHING',
                         [
                             lastBlock,
                             extrinsicIndex,
@@ -189,7 +189,7 @@ async function main() {
                 } else if (event.event.section === 'currencies' && event.event.method === 'Deposited') {
                     const data = event.event.data;
                     await client.query(
-                        'INSERT INTO transactions(block_id, extrinsic_index, event_index, asset, sender, receiver, amount) VALUES ($1, $2, $3, $4, \'\', $5, $6) ON CONFLICT DO NOTHING',
+                        'INSERT INTO transactions(block_id, extrinsic_index, event_index, asset, sender, receiver, amount) VALUES ($1, $2, $3, $4, \'TECH_DEPOSIT\', $5, $6) ON CONFLICT DO NOTHING',
                         [
                             lastBlock,
                             extrinsicIndex,
